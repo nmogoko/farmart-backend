@@ -21,8 +21,7 @@ psycopg2-binary==2.9.10
 PyJWT==2.9.0
 python-dotenv==1.0.1
 requests==2.32.3
-sqlacodegen==2.3.0.post1
-SQLAlchemy==1.4.54
+SQLAlchemy==2.0.36
 typeguard==4.4.0
 typing_extensions==4.12.2
 urllib3==2.2.3
