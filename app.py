@@ -5,8 +5,9 @@ from flask_migrate import Migrate
 from models import Request, db, Transaction, CallbackMetadatum, Animal, Order
 from utils import generate_token, generate_timestamp, generate_password
 from flask_sqlalchemy import SQLAlchemy
-import requests
 from sqlalchemy.exc import SQLAlchemyError
+
+import requests
 
 app = Flask(__name__)
 config = Config()
@@ -14,7 +15,7 @@ config = Config()
 # Access environment variables
 # app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = config.SQLALCHEMY_DATABASE_URI
-app.config['SQLALCHEMY_TRACK_MODIFICATION'] = config.SQLALCHEMY_TRACK_MODIFICATION
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATION
 
 # Initialize SQLAlchemy and Flask-Migrate
 db = SQLAlchemy(app)
@@ -147,7 +148,7 @@ def add_animal():
         return jsonify({
             "status": "success",
             "message": "Animal added successfully",
-            "animal_id": new_animal.id
+            "animal": new_animal
         }), 201
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -163,8 +164,6 @@ def update_animal(animal_id):
 
     # Find the animal by ID
     animal = Animal.query.get(animal_id)
-    if animal is None:
-        return jsonify({'message': 'Animal not found'}), 404
     if animal is None:
         return jsonify({'message': 'Animal not found'}), 404
 
