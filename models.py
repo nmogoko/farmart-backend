@@ -1,10 +1,9 @@
 # coding: utf-8
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
-from app import db
 
-
-
+db = SQLAlchemy()
 
 class Role(db.Model):
     __tablename__ = 'Roles'
@@ -114,18 +113,18 @@ class Order(db.Model):
 class Request(db.Model):
     __tablename__ = 'Requests'
 
-    id = Column(Integer, primary_key=True)
-    order_id = Column(ForeignKey('Orders.order_id'))
-    user_id = Column(ForeignKey('Users.id'))
-    MerchantRequestID = Column(String)
-    CheckoutRequestID = Column(String)
-    ResponseCode = Column(String)
-    ResponseDescription = Column(String)
-    CustomerMessage = Column(String)
-    created_at = Column(DateTime)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    order_id = db.Column(db.ForeignKey('Orders.order_id'))
+    user_id = db.Column(db.ForeignKey('Users.id'))
+    MerchantRequestID = db.Column(db.String)
+    CheckoutRequestID = db.Column(db.String)
+    ResponseCode = db.Column(db.String)
+    ResponseDescription = db.Column(db.String)
+    CustomerMessage = db.Column(db.String)
+    created_at = db.Column(db.DateTime)
 
-    order = relationship('Order')
-    user = relationship('User')
+    order = db.relationship('Order')
+    user = db.relationship('User')
 
 
 class Transaction(db.Model):
