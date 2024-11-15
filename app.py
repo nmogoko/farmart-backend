@@ -26,7 +26,7 @@ migrate = Migrate(app, db)
 db.init_app(app)
 
 @app.route('/initiate-payment', methods=['POST'])
-@generate_token 
+@generate_token
 def initiate_payment():
    data = request.get_json()
 
@@ -50,7 +50,7 @@ def initiate_payment():
     "TransactionDesc": "Paying for items in farmart"
    }
 
-   response = requests.post(request_url, json=payload, headers=headers)  
+   response = requests.post(request_url, json=payload, headers=headers)
  
     # I need to populate the Requests table with the response data. I will use the response model
    # Check if the response was successful
@@ -61,11 +61,11 @@ def initiate_payment():
         # Add additional fields to the response data dictionary
         response_data["order_id"] = data["orderId"]
         response_data["user_id"] = 1
-        response_data["created_at"] = datetime.now()  
+        response_data["created_at"] = datetime.now()
 
         # Now, use response_data to populate the Requests table
         # Example: assuming you have a Requests model
-        new_request = Request(  
+        new_request = Request(
             order_id=response_data["order_id"],
             user_id=response_data["user_id"],
             MerchantRequestID=response_data.get("MerchantRequestID"),
@@ -86,15 +86,15 @@ def initiate_payment():
 def callback_url():
     data = request.get_json()
 
-    found_request = Request.query.filter_by(CheckoutRequestID=data["Body"]["stkCallback"]["CheckoutRequestID"]).first()  
+    found_request = Request.query.filter_by(CheckoutRequestID=data["Body"]["stkCallback"]["CheckoutRequestID"]).first()
     
-    new_transaction = Transaction(  
+    new_transaction = Transaction(
         Request_id = found_request.id,
         MerchantRequestID = data["Body"]["stkCallback"]["MerchantRequestID"],
         CheckoutRequestID = data["Body"]["stkCallback"]["CheckoutRequestID"],
         ResultCode = data["Body"]["stkCallback"]["ResultCode"],
         ResultDesc = data["Body"]["stkCallback"]["ResultDesc"],
-        created_at = datetime.now()  
+        created_at = datetime.now()
     )
 
     db.session.add(new_transaction)
@@ -110,7 +110,7 @@ def callback_url():
             MpesaReceiptNumber = callback_data[1]["Value"],
             TransactionDate = callback_data[2]["Value"],
             PhoneNumber = callback_data[3]["Value"],
-            created_at = datetime.now()  
+            created_at = datetime.now()
         )
         
         db.session.add(new_callback_metadata)
