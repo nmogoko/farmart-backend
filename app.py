@@ -591,7 +591,6 @@ def add_animal():
 @app.route('/animals/<int:animal_id>', methods=['PUT'])
 def update_animal(animal_id):
     data = request.get_json()
-    animal = Animal.query.get(animal_id)
 
     # Find the animal by ID
     animal = Animal.query.get(animal_id)
@@ -625,7 +624,6 @@ def update_animal(animal_id):
 # Route to delete an animal listing
 @app.route('/animals/<int:animal_id>', methods=['DELETE'])
 def delete_animal(animal_id):
-    animal = Animal.query.get(animal_id)
 
     animal = Animal.query.get(animal_id)
     if animal is None:
@@ -659,69 +657,6 @@ def get_animals():
         for animal in animals
     ]
     return jsonify(animal_list), 200
-
-@app.route('/orders/<int:order_id>/farmer-action', methods=['POST'])
-def farmer_action_on_order(order_id):
-    # Get the order from the database
-    order = Order.query.get(order_id)
-    
-    order = Order.query.get(order_id)
-    if not order:
-        abort(404, description="Order not found")
-    
-    # Ensure that only orders that are 'payment_success' can be confirmed or rejected
-    if order.status != 'payment_success':
-        abort(400, description="Order cannot be modified")
-
-    # Get action from request data
-    data = request.get_json()
-    action = data.get('action')
-    
-    if action == 'confirm':
-        order.status = 'farmer_confirmed'  
-    elif action == 'reject':
-        order.status = 'farmer_rejected'  
-    else:
-        abort(400, description="Invalid action. Action must be 'confirm' or 'reject'")
-
-    try:
-        db.session.commit()
-        return jsonify(message=f"Order {action}d successfully by farmer."), 200
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        abort(500, description="An error occurred while processing your request")
-
-@app.route('/orders/<int:order_id>/buyer-action', methods=['POST'])
-def buyer_action_on_order(order_id):
-    # Get the order from the database
-    order = Order.query.get(order_id)
-    
-    order = Order.query.get(order_id)
-    if not order:
-        abort(404, description="Order not found")
-    
-    # Ensure that only orders that are 'payment_success' can be confirmed or cancelled
-    if order.status != 'payment_success':
-        abort(400, description="Order cannot be modified")
-
-    # Get action from request data
-    data = request.get_json()
-    action = data.get('action')
-    
-    if action == 'confirm':
-        order.status = 'buyer_confirmed'  
-    elif action == 'cancel':
-        order.status = 'cancelled'  
-    else:
-        abort(400, description="Invalid action. Action must be 'confirm' or 'cancel'")
-
-    try:
-        db.session.commit()
-        return jsonify(message=f"Order {action}d successfully by buyer."), 200
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        abort(500, description="An error occurred while processing your request")
-
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
