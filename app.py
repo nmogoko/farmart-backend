@@ -4,7 +4,7 @@ from extensions import jwt
 from flask import Flask, request, jsonify
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager
 from flask_migrate import Migrate
-from models import Request, db, Transaction, CallbackMetadatum, User, Role, UsersRole,FarmersProfile, Cart, Animal
+from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile
 from sqlalchemy.exc import IntegrityError
 from utils import generate_token, generate_timestamp, generate_password
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -281,6 +281,129 @@ def add_cart():
         return jsonify({"error": "Failed to add item to cart."}), 500
 
     return jsonify({"message": "Item added to cart successfully."}), 201
+
+# Helper function for assigning roles
+def assign_role(user_id, role_name, description):
+    role = Role.query.filter_by(role_name=role_name).first()
+    if not role:
+        role = Role(role_name=role_name, description=description)
+        db.session.add(role)
+        db.session.commit()
+
+    user_role = UsersRole(user_id=user_id, role_id=role.id, created_at=datetime.utcnow())
+    db.session.add(user_role)
+    db.session.commit()
+
+
+# Farmer registration
+@app.route('/farmer-sign-up', methods=['POST'])
+def farmer_sign_up():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    username = data.get('username')
+
+    if not email or not password or not username:
+        return jsonify({"msg": "Email, username, and password are required"}), 400
+
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        return jsonify({"msg": "User already exists"}), 409
+
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+    new_user = User(email=email, username=username, password_hash=hashed_password, is_verified=False)
+    db.session.add(new_user)
+    db.session.commit()  # Commit to generate new_user.id
+
+    # Assign farmer role
+    assign_role(new_user.id, 'farmer', 'Farmer with access to list and manage animals')
+
+    # Create Farmer Profile
+    farmer_profile = FarmersProfile(user_id=new_user.id, farm_name=data.get('farm_name'), location=data.get('location'))
+    db.session.add(farmer_profile)
+    db.session.commit()
+
+    return jsonify({"msg": "Farmer account created successfully"}), 201
+
+
+# Buyer Registration
+@app.route('/buyer-sign-up', methods=['POST'])
+def buyer_sign_up():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    username = data.get('username')
+
+    if not email or not password or not username:
+        return jsonify({"msg": "Email, username, and password are required"}), 400
+
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        return jsonify({"msg": "User already exists"}), 409
+
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+    new_user = User(email=email, username=username, password_hash=hashed_password, is_verified=False)
+
+    db.session.add(new_user)
+    db.session.commit()  # Commit to generate new_user.id
+
+    # Assign buyer role
+    assign_role(new_user.id, 'buyer', 'Buyer with access to browse and purchase animals')
+
+    return jsonify({"msg": "Buyer account created successfully"}), 201
+
+
+# Login Route
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({"msg": "Email and password are required"}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({"msg": "Invalid email or password"}), 401
+
+    user_data = {
+        "id": user.id,
+        "username": user.username
+    }
+
+    access_token = create_access_token(identity=user_data)
+    refresh_token = create_refresh_token(identity=user_data)
+    return jsonify(access_token=access_token, refresh_token=refresh_token), 200
+
+
+# Protected User Route
+@app.route('/user-profile', methods=['GET'])
+@jwt_required()
+def user_profile():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user['id'])
+    
+    if user:
+        return jsonify({
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "is_verified": user.is_verified
+        }), 200
+    else:
+        return jsonify({"msg": "User not found"}), 404
+
+
+# Refresh Token
+@app.route('/refresh-token', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh_token():
+    current_user = get_jwt_identity()
+    new_access_token = create_access_token(identity=current_user)
+    return jsonify(access_token=new_access_token), 200
+
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
