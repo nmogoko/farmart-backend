@@ -4,7 +4,8 @@ from extensions import jwt
 from flask import Flask, request, jsonify
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager
 from flask_migrate import Migrate
-from models import Request, db, Transaction, CallbackMetadatum, User, Role, UsersRole,FarmersProfile
+from models import Request, db, Transaction, CallbackMetadatum, User, Role, UsersRole,FarmersProfile, Cart, Animal
+from sqlalchemy.exc import IntegrityError
 from utils import generate_token, generate_timestamp, generate_password
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -239,6 +240,47 @@ def refresh_token():
     new_access_token = create_access_token(identity=current_user)
     return jsonify(access_token=new_access_token), 200
 
+@app.route('/add-cart', methods=["POST"])
+def add_cart():
+    data = request.get_json()
+
+    user_id = data.get('user_id')
+    animal_id = data.get('animal_id')
+    quantity = data.get('quantity')
+
+    if not all([user_id, animal_id, quantity]):
+        return jsonify({"error": "user_id, animal_id, and quantity are required fields."}), 400
+    
+    if quantity <= 0:
+        return jsonify({"error": "Quantity must be greater than 0."}), 400
+    
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify({"error": "User not found."}), 404
+
+    # Check if animal exists and is available
+    animal = Animal.query.filter_by(id=animal_id).first()
+    if not animal or not animal.is_available:
+        return jsonify({"error": "Animal not found or not available."}), 404
+
+    # Check if the item is already in the cart
+    cart_item = Cart.query.filter_by(user_id=user_id, animal_id=animal_id).first()
+    if cart_item:
+        cart_item.quantity += quantity
+    else:
+        # Add new item to the cart
+        cart_item = Cart(user_id=user_id, animal_id=animal_id, quantity=quantity)
+       
+        # Commit changes to the database
+    try:
+        db.session.add(cart_item)
+        db.session.commit()
+    except IntegrityError: 
+        db.session.rollback()
+        return jsonify({"error": "Failed to add item to cart."}), 500
+
+    return jsonify({"message": "Item added to cart successfully."}), 201
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
