@@ -1,6 +1,6 @@
 from config import Config
 from datetime import datetime
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 from flask_migrate import Migrate
 from models import db, Animal, Order, Request, Transaction, CallbackMetadatum
 from utils import generate_token, generate_timestamp, generate_password
