@@ -96,11 +96,11 @@ def callback_url():
     db.session.add(new_transaction)
 
     if data["Body"]["stkCallback"]["ResultCode"] == 0:
-        transaction = Transaction.query.filter_by(CheckoutRequestID=data["Body"]["stkCallback"]["CheckoutRequestID"]).first()  
+        transaction = Transaction.query.filter_by(CheckoutRequestID=data["Body"]["stkCallback"]["CheckoutRequestID"]).first()
 
         callback_data =  data["Body"]["stkCallback"]["CallbackMetadata"]["Item"]
 
-        new_callback_metadata = CallbackMetadatum(  
+        new_callback_metadata = CallbackMetadatum(
             transaction_id = transaction.id,
             Amount = callback_data[0]["Value"],
             MpesaReceiptNumber = callback_data[1]["Value"],
