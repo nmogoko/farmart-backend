@@ -11,7 +11,7 @@ class Config:
     CONSUMER_SECRET = os.getenv("CONSUMER_SECRET")
     MPESA_PASSKEY = os.getenv("MPESA_PASSKEY")
     MPESA_BUSINESS_SHORTCODE=os.getenv("MPESA_BUSINESS_SHORTCODE")
-    # JWT_SECRET_KEY = '3259a843-5011-4b6c-8880-54b029aaa069'
+    JWT_SECRET_KEY = os.getenv("SECRET_KEY")
     # JWT_BLACKLIST_ENABLED = True
     # JWT_BLACKLIST_TOKEN_CHECKS = ['access', 'refresh']
     # MAIL_SERVER = 'smtp.gmail.com'
