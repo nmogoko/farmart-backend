@@ -1,6 +1,5 @@
 from config import Config
 from datetime import datetime
-from extensions import jwt
 from flask import Flask, request, jsonify
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager
 from flask_migrate import Migrate
@@ -260,7 +259,7 @@ def login():
 @jwt_required()
 def user_profile():
     current_user = get_jwt_identity()
-    user = User.query.get(current_user['id'])
+    user = User.query.filter_by(id=current_user['id']).first()
     
     if user:
         return jsonify({
