@@ -1,7 +1,7 @@
 """Make id column in table Cart autogenerate
 
 Revision ID: d7a25810c7cc
-Revises: cdd303922e15
+Revises: 305f525c6d85
 Create Date: 2024-11-15 20:02:53.624039
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'd7a25810c7cc'
-down_revision = 'cdd303922e15'
+down_revision = '305f525c6d85'
 branch_labels = None
 depends_on = None
 
