@@ -116,7 +116,7 @@ def callback_url():
    
     return jsonify(data), 200
 
-@app.route('/add-cart', methods=["POST"])
+@app.route('/cart', methods=["POST"])
 def add_cart():
     data = request.get_json()
 
@@ -443,6 +443,101 @@ def refresh_token():
     current_user = get_jwt_identity()
     new_access_token = create_access_token(identity=current_user)
     return jsonify(access_token=new_access_token), 200
+@app.route('/cart/<int:id>', methods=["GET"])
+def get_single_cart():
+    cart_id = request.args.get('id')
+
+    if not cart_id:
+        return jsonify({"error": "cart_id missing."}), 400
+     
+    cart_items = Cart.query.filter_by(id=cart_id).all()
+
+    if not cart_items:
+        return jsonify({"message": "Cart is empty."}), 404
+
+    payment_data = []
+    total_amount = 0
+
+    for item in cart_items:
+        animal = Animal.query.get(item.animal_id)
+        if not animal:
+            continue  # Skip if the animal doesn't exist
+
+        # Calculate the total price for the item
+        item_total = animal.price * item.quantity
+        total_amount += item_total
+
+        # Add item details to the payment data
+        payment_data.append({
+            "animal_id": animal.id,
+            "animal_name": animal.type, 
+            "price_per_item": animal.price,
+            "quantity": item.quantity,
+            "total_price": item_total
+        })
+
+    # Return the payment data and total amount
+    return jsonify({
+        "payment_data": payment_data,
+        "total_amount": total_amount
+    }), 200
+
+
+@app.route('/cart/<int:id>', methods=["DELETE"])
+def clear_cart():
+    # Extract user_id from the request body or query parameters
+    data = request.get_json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({"error": "user_id is required."}), 400
+
+    try:
+        # Delete all cart items for the given user_id
+        Cart.query.filter_by(user_id=user_id).delete()
+
+        # Commit the changes to the database
+        db.session.commit()
+
+        return jsonify({"message": "Cart cleared successfully."}), 200
+    except Exception as e:
+        db.session.rollback()  # Rollback in case of error
+        return jsonify({"error": "Failed to clear cart.", "details": str(e)}), 500
+    
+@app.route('/cart/<int:id>', methods=["PATCH"])
+def reduce_cart_item():
+    # Extract user_id and animal_id from the request body
+    data = request.get_json()
+    user_id = data.get('user_id')
+    animal_id = data.get('animal_id')
+
+    if not user_id or not animal_id:
+        return jsonify({"error": "user_id and animal_id are required."}), 400
+
+    try:
+        # Find the cart item to update
+        cart_item = Cart.query.filter_by(user_id=user_id, animal_id=animal_id).first()
+
+        if not cart_item:
+            return jsonify({"error": "Item not found in cart."}), 404
+
+        # Decrease the quantity by 1
+        cart_item.quantity -= 1
+
+        # If quantity is 0 or less, remove the item from the cart
+        if cart_item.quantity <= 0:
+            db.session.delete(cart_item)
+        else:
+            db.session.add(cart_item)  # Update the cart item if still valid
+
+        # Commit the changes to the database
+        db.session.commit()
+
+        return jsonify({"message": "Item quantity reduced successfully."}), 200
+
+    except Exception as e:
+        db.session.rollback()  # Rollback in case of error
+        return jsonify({"error": "Failed to update item quantity.", "details": str(e)}), 500
 
 
 if __name__ == '__main__':
