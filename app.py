@@ -11,8 +11,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 import requests
 
-import requests
-
 app = Flask(__name__)
 config = Config()
 
