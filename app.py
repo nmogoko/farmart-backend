@@ -1,7 +1,7 @@
 from config import Config
 from datetime import datetime
 from flask import Flask, request, jsonify, g
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager, decode_token
 from flask_migrate import Migrate
 from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -373,6 +373,33 @@ def login():
     access_token = create_access_token(identity=user_data)
     refresh_token = create_refresh_token(identity=user_data)
     return jsonify(access_token=access_token, refresh_token=refresh_token), 200
+
+# reset password
+@app.route('/reset-password/<token>', methods=['POST'])
+def reset_password(token):
+    data = request.get_json()
+    new_password = data.get('new_password')
+
+    if not new_password:
+        return jsonify({"msg": "New password is required"}), 400
+
+    try:
+        # Decode the token to get the user identity
+        decoded_token = decode_token(token)
+        email = decoded_token['sub']['email']
+    except Exception as e:
+        return jsonify({"msg": "Invalid token"}), 401
+    
+    hashed_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+
+    # Update the password in the database using SQLAlchemy
+    user = User.query.filter_by(email=email).first()
+    if user:
+        user.password = hashed_password
+        db.session.commit()
+        return jsonify({"msg": "Password has been reset successfully"}), 200
+    else:
+        return jsonify({"msg": "User not found"}), 404
 
 
 # Protected User Route
