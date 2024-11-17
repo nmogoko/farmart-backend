@@ -581,7 +581,7 @@ def add_animal():
         age=data['age'],
         price=data['price'],
         description=data.get('description', ''),
-        is_available=True  # Assuming new listings are available by default
+        is_available=True  
     )
 
     # Add and commit to the database
