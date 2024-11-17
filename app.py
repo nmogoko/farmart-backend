@@ -1,12 +1,11 @@
 from config import Config
 from datetime import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager
 from flask_migrate import Migrate
-from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile
+from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from utils import generate_token, generate_timestamp, generate_password
-from sqlalchemy.exc import IntegrityError
+from utils import generate_token, generate_timestamp, generate_password, with_user_middleware
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import requests
@@ -343,7 +342,7 @@ def buyer_sign_up():
     new_user = User(email=email, username=username, password_hash=hashed_password, is_verified=False)
 
     db.session.add(new_user)
-    db.session.commit()  # Commit to generate new_user.id
+    # db.session.commit()  # Commit to generate new_user.id
 
     # Assign buyer role
     assign_role(new_user.id, 'buyer', 'Buyer with access to browse and purchase animals')
@@ -403,13 +402,15 @@ def refresh_token():
     return jsonify(access_token=new_access_token), 200
 
 @app.route('/cart/<int:id>', methods=["GET"])
-def get_single_cart():
-    cart_id = request.args.get('id')
-
-    if not cart_id:
+@with_user_middleware
+def get_single_cart(id):
+    if not id:
         return jsonify({"error": "cart_id missing."}), 400
+    
+    if g.user_id is None:
+        return jsonify({"error": "Unauthorized access"}), 401
      
-    cart_items = Cart.query.filter_by(id=cart_id).all()
+    cart_items = Cart.query.filter_by(id=id, user_id=g.user_id).all()
 
     if not cart_items:
         return jsonify({"message": "Cart is empty."}), 404
@@ -418,9 +419,13 @@ def get_single_cart():
     total_amount = 0
 
     for item in cart_items:
-        animal = Animal.query.get(item.animal_id)
+        animal = Animal.query.filter_by(id=item.animal_id).first()
         if not animal:
             continue  # Skip if the animal doesn't exist
+
+        type =Type.query.filter_by(id=animal.type_id).first()
+        if not type:
+            type = None 
 
         # Calculate the total price for the item
         item_total = animal.price * item.quantity
@@ -429,7 +434,7 @@ def get_single_cart():
         # Add item details to the payment data
         payment_data.append({
             "animal_id": animal.id,
-            "animal_name": animal.type, 
+            "animal_name": type.name, 
             "price_per_item": animal.price,
             "quantity": item.quantity,
             "total_price": item_total
