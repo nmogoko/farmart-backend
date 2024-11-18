@@ -54,7 +54,7 @@ def initiate_payment():
     "PartyA": found_user.phone_number,    
     "PartyB": config.MPESA_BUSINESS_SHORTCODE,   
     "PhoneNumber": found_user.phone_number,    
-    "CallBackURL": "https://2cea8ac7a1e485ba43d48773bacceeb9.serveo.net/callback-url",    
+    "CallBackURL": f"{request.host}/callback-url",    
     "AccountReference": data["orderId"],    
     "TransactionDesc": "Paying for items in farmart"
    }
