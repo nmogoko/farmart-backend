@@ -24,7 +24,18 @@ db.init_app(app)
 
 @app.route('/initiate-payment', methods=['POST'])
 @generate_token
+@with_user_middleware
 def initiate_payment():
+   user_id = g.user_id  # Get the user ID from the middleware
+
+   if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+   
+   found_user = User.query.filter_by(id=user_id).first()
+
+   if not found_user:
+        return jsonify({"error": "Something wrong happened. Please try again later or contact support."}), 404
+      
    data = request.get_json()
 
    request_url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
@@ -39,17 +50,16 @@ def initiate_payment():
     "Timestamp": generate_timestamp(),
     "TransactionType": "CustomerPayBillOnline",    
     "Amount": data["amount"],    
-    "PartyA": data["phoneNumber"],    
+    "PartyA": found_user.phone_number,    
     "PartyB": config.MPESA_BUSINESS_SHORTCODE,   
-    "PhoneNumber": data["phoneNumber"],    
-    "CallBackURL": "https://b28f8200abe4a6120bc978908659ada0.serveo.net/callback-url",    
+    "PhoneNumber": found_user.phone_number,    
+    "CallBackURL": "https://2cea8ac7a1e485ba43d48773bacceeb9.serveo.net/callback-url",    
     "AccountReference": data["orderId"],    
     "TransactionDesc": "Paying for items in farmart"
    }
 
    response = requests.post(request_url, json=payload, headers=headers)
  
-    # I need to populate the Requests table with the response data. I will use the response model
    # Check if the response was successful
    if response.status_code == 200:
         # Parse the response JSON into a dictionary
@@ -84,7 +94,7 @@ def callback_url():
     data = request.get_json()
 
     found_request = Request.query.filter_by(CheckoutRequestID=data["Body"]["stkCallback"]["CheckoutRequestID"]).first()
-    
+
     new_transaction = Transaction(
         Request_id = found_request.id,
         MerchantRequestID = data["Body"]["stkCallback"]["MerchantRequestID"],
@@ -227,13 +237,17 @@ def get_animals():
     return jsonify(animal_list), 200
 
 @app.route('/cart', methods=["POST"])
+@with_user_middleware
 def add_cart():
+    if g.user_id is None:
+        return jsonify({"error": "Unauthorized access"}), 401
+    
     data = request.get_json()
 
     user_id = data.get('user_id')
     animal_id = data.get('animal_id')
     quantity = data.get('quantity')
-
+    
     if not all([user_id, animal_id, quantity]):
         return jsonify({"error": "user_id, animal_id, and quantity are required fields."}), 400
     
@@ -428,6 +442,7 @@ def refresh_token():
     new_access_token = create_access_token(identity=current_user)
     return jsonify(access_token=new_access_token), 200
 
+
 @app.route('/cart/<int:id>', methods=["GET"])
 @with_user_middleware
 def get_single_cart(id):
@@ -475,7 +490,11 @@ def get_single_cart(id):
 
 
 @app.route('/cart/<int:id>', methods=["DELETE"])
+@with_user_middleware
 def clear_cart():
+    if g.user_id is None:
+        return jsonify({"error": "Unauthorized access"}), 401
+    
     # Extract user_id from the request body or query parameters
     data = request.get_json()
     user_id = data.get('user_id')
