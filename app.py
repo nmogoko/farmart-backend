@@ -1,4 +1,3 @@
-import uuid
 from config import Config
 from datetime import datetime
 from flask import Flask, request, jsonify, g
