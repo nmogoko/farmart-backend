@@ -1,9 +1,10 @@
+import uuid
 from config import Config
 from datetime import datetime
 from flask import Flask, request, jsonify, g
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager, decode_token
 from flask_migrate import Migrate
-from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type
+from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type, Notification
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from utils import generate_token, generate_timestamp, generate_password, with_user_middleware
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -548,6 +549,47 @@ def reduce_cart_item():
     except Exception as e:
         db.session.rollback()  # Rollback in case of error
         return jsonify({"error": "Failed to update item quantity.", "details": str(e)}), 500
+
+@app.route('/notifications/<int:farmer_id>', methods=['GET'])
+def get_notifications(farmer_id):
+    """Fetch all notifications for a specific farmer."""
+    notifications = Notification.query.filter_by(recipient_id=farmer_id).all()
+    return jsonify([
+        {
+            'id': notification.id,
+            'order_id': notification.order_id,
+            'message': notification.message,
+            'status': notification.status,
+            'created_at': notification.created_at
+        } for notification in notifications
+    ])
+
+
+
+
+@app.route('/notifications/<int:notification_id>', methods=['PUT'])
+def respond_to_notification(notification_id):
+    """Accept or decline a notification."""
+    data = request.json
+    notification = Notification.query.filter_by(id=notification_id).first()
+    if not notification:
+        return jsonify({'error': 'Notification not found'}), 404
+
+    try:
+        response = data.get('response')
+        if response not in ['accepted', 'declined']:
+            return jsonify({'error': 'Invalid response'}), 400
+
+        notification.status = response
+
+        # Update order status based on farmer's response
+        order = notification.order
+        order.status = 'accepted' if response == 'accepted' else 'declined'
+
+        db.session.commit()
+        return jsonify({'message': f'Notification {response}!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
