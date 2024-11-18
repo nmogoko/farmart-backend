@@ -1,8 +1,9 @@
+import uuid
 from config import Config
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_migrate import Migrate
-from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal
+from models import Notification, Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Order
 from sqlalchemy.exc import IntegrityError
 from utils import generate_token, generate_timestamp, generate_password
 
@@ -155,6 +156,48 @@ def add_cart():
         return jsonify({"error": "Failed to add item to cart."}), 500
 
     return jsonify({"message": "Item added to cart successfully."}), 201
+
+
+@app.route('/notifications/<int:farmer_id>', methods=['GET'])
+def get_notifications(farmer_id):
+    """Fetch all notifications for a specific farmer."""
+    notifications = Notification.query.filter_by(recipient_id=farmer_id).all()
+    return jsonify([
+        {
+            'id': notification.id,
+            'order_id': notification.order_id,
+            'message': notification.message,
+            'status': notification.status,
+            'created_at': notification.created_at
+        } for notification in notifications
+    ])
+
+
+
+
+@app.route('/notifications/<int:notification_id>', methods=['PUT'])
+def respond_to_notification(notification_id):
+    """Accept or decline a notification."""
+    data = request.json
+    notification = Notification.query.filter_by(id=notification_id).first()
+    if not notification:
+        return jsonify({'error': 'Notification not found'}), 404
+
+    try:
+        response = data.get('response')
+        if response not in ['accepted', 'declined']:
+            return jsonify({'error': 'Invalid response'}), 400
+
+        notification.status = response
+
+        # Update order status based on farmer's response
+        order = notification.order
+        order.status = 'accepted' if response == 'accepted' else 'declined'
+
+        db.session.commit()
+        return jsonify({'message': f'Notification {response}!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)

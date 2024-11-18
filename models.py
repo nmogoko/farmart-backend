@@ -1,4 +1,5 @@
 # coding: utf-8
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
@@ -153,3 +154,18 @@ class CallbackMetadatum(db.Model):
     created_at = Column(DateTime)
 
     transaction = relationship('Transaction')
+
+class Notification(db.Model):
+    __tablename__ = 'Notifications'
+
+    id = Column(Integer, primary_key=True)
+    sender_id = Column(ForeignKey('Users.id'))  # Buyer
+    recipient_id = Column(ForeignKey('Users.id'))  # Farmer
+    order_id = Column(ForeignKey('Orders.id'))
+    message = Column(Text)
+    status = Column(Enum('pending', 'accepted', 'declined', name='notification_status'), default='pending')
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    sender = relationship('User', foreign_keys=[sender_id])
+    recipient = relationship('User', foreign_keys=[recipient_id])
+    order = relationship('Order')
