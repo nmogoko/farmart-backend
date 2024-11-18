@@ -54,7 +54,7 @@ def initiate_payment():
     "PartyA": found_user.phone_number,    
     "PartyB": config.MPESA_BUSINESS_SHORTCODE,   
     "PhoneNumber": found_user.phone_number,    
-    "CallBackURL": f"{request.host}/callback-url",    
+    "CallBackURL": "https://farmart-backend-f2uh.onrender.com/callback-url",  
     "AccountReference": data["orderId"],    
     "TransactionDesc": "Paying for items in farmart"
    }
