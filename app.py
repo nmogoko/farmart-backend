@@ -141,7 +141,6 @@ def add_animal():
 
     # Create a new Animal object
     new_animal = Animal(
-        id=data['id'],
         farmer_id=data['farmer_id'],
         type_id=data['type_id'],
         breed_id=data['breed_id'],
@@ -158,7 +157,6 @@ def add_animal():
 
         # Manually convert new_animal to a dictionary
         animal_dict = {
-            "id": new_animal.id,
             "farmer_id": new_animal.farmer_id,
             "type_id": new_animal.type_id,
             "breed_id": new_animal.breed_id,
