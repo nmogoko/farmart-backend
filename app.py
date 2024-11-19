@@ -4,10 +4,11 @@ from flask import Flask, request, jsonify, g
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager, decode_token, get_jwt
 from flask_migrate import Migrate
 from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type, Notification, Breed
+from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type, Notification, Order, Animal
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from utils import generate_token, generate_timestamp, generate_password, with_user_middleware
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from flask_socketio import SocketIO, emit
 import requests
 
 app = Flask(__name__)
@@ -21,6 +22,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICAT
 jwt = JWTManager(app)
 migrate = Migrate(app, db)
 db.init_app(app)
+socketio = SocketIO(app)
 
 blacklist = set()
 
@@ -653,6 +655,23 @@ def respond_to_notification(notification_id):
         return jsonify({'message': f'Notification {response}!'})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+# WebSocket event for notifications
+@socketio.on('connect')
+def handle_connect():
+    print("Client connected")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print("Client disconnected")
+
+# WebSocket route: Notify farmer
+def notify_farmer(farmer_id, message):
+    emit('farmer_notification', {'message': message}, room=f'farmer_{farmer_id}')
+
+# WebSocket route: Notify buyer
+def notify_buyer(user_id, message):
+    emit('buyer_notification', {'message': message}, room=f'buyer_{user_id}')
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
