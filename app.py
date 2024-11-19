@@ -145,6 +145,7 @@ def add_animal():
 
     # Create a new Animal object
     new_animal = Animal(
+        id=data['id'],
         farmer_id=data['farmer_id'],
         type_id=data['type_id'],
         breed_id=data['breed_id'],
