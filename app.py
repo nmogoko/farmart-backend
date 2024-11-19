@@ -155,11 +155,25 @@ def add_animal():
     try:
         db.session.add(new_animal)
         db.session.commit()
+
+        # Manually convert new_animal to a dictionary
+        animal_dict = {
+            "id": new_animal.id,
+            "farmer_id": new_animal.farmer_id,
+            "type_id": new_animal.type_id,
+            "breed_id": new_animal.breed_id,
+            "age": new_animal.age,
+            "price": new_animal.price,
+            "description": new_animal.description,
+            "is_available": new_animal.is_available
+        }
+
         return jsonify({
             "status": "success",
             "message": "Animal added successfully",
-            "animal": new_animal
+            "animal": animal_dict
         }), 201
+
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({
@@ -173,7 +187,7 @@ def update_animal(animal_id):
     data = request.get_json()
 
     # Find the animal by ID
-    animal = Animal.query.get(animal_id)
+    animal = db.session.get(Animal, animal_id)
     if animal is None:
         return jsonify({'message': 'Animal not found'}), 404
 
@@ -203,7 +217,7 @@ def update_animal(animal_id):
 @app.route('/animals/<int:animal_id>', methods=['DELETE'])
 def delete_animal(animal_id):
 
-    animal = Animal.query.get(animal_id)
+    animal = db.session.get(Animal, animal_id)
     if animal is None:
         return jsonify({'message': 'Animal not found'}), 404
 
