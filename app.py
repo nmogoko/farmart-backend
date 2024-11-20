@@ -143,7 +143,6 @@ def add_animal():
 
     # Create a new Animal object
     new_animal = Animal(
-        id=data['id'],
         farmer_id=data['farmer_id'],
         type_id=data['type_id'],
         breed_id=data['breed_id'],
@@ -264,6 +263,30 @@ def get_animals():
         for animal in animals
     ]
     return jsonify(animal_list), 200
+
+@app.route('/animals/<int:animal_id>', methods=['GET'])
+def get_animal(animal_id):
+    # Use SQLAlchemy ORM to retrieve the animal
+    animal = db.session.get(Animal, animal_id)  # Updated to use SQLAlchemy 2.0 syntax
+
+    if not animal:
+        return jsonify({'error': 'Animal not found'}), 404
+
+    # Serialize the animal object into a dictionary
+    animal_details = {
+        'id': animal.id,
+        'farmer_id': animal.farmer_id,
+        'type': animal.type.name if animal.type else None,
+        'breed': animal.breed.name if animal.breed else None,
+        'age': animal.age,
+        'price': str(animal.price),  # Ensure price is serialized as a string
+        'description': animal.description,
+        'is_available': animal.is_available
+    }
+
+    # Return the serialized data as JSON
+    return jsonify(animal_details), 200
+
 
 @app.route('/cart', methods=["POST"])
 @with_user_middleware
