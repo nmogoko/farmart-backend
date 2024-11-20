@@ -1,6 +1,7 @@
 from config import Config
 from datetime import datetime
 from flask import Flask, request, jsonify, g
+from flask_mail import Mail, Message
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager, decode_token
 from flask_migrate import Migrate
 from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type, Notification
@@ -19,6 +20,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = config.SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATION
 
 jwt = JWTManager(app)
+mail = Mail(app)
 migrate = Migrate(app, db)
 db.init_app(app)
 
@@ -399,6 +401,39 @@ def login():
     access_token = create_access_token(identity=user_data)
     refresh_token = create_refresh_token(identity=user_data)
     return jsonify(access_token=access_token, refresh_token=refresh_token), 200
+
+# forgot-password
+@app.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    data = request.get_json()
+    email = data.get('email')
+    
+    if not email:
+        return jsonify({"msg": "Email is required"}), 400
+    
+    user = User.query.filter_by(email=email).first()
+
+    if user is None:
+        return jsonify({"msg": "Password reset email sent!"}), 200
+
+    user_data = {
+        "id": user.id,
+        "email": user.email
+    }
+
+    # Create a password reset token that expires in 15 minutes
+    reset_token = create_access_token(identity=user_data, expires_delta=datetime.timedelta(minutes=15))
+
+        # Send email with reset link
+    msg = Message(subject="Password Reset",
+                  sender="noreply@yourapp.com",
+                  recipients=[email])
+    msg.body = f"Please click the link to reset your password:{reset_token}"
+    mail.send(msg)
+
+    return jsonify({"msg": "Password reset email sent!"}), 200
+
+    return jsonify({"msg": "Password reset email sent!"}), 200
 
 # reset password
 @app.route('/reset-password/<token>', methods=['POST'])
