@@ -673,5 +673,53 @@ def notify_farmer(farmer_id, message):
 def notify_buyer(user_id, message):
     emit('buyer_notification', {'message': message}, room=f'buyer_{user_id}')
 
+# Place an Order
+@app.route('/orders', methods=['POST'])
+def create_order():
+    try:
+        data = request.get_json()
+        user_id = data['user_id']
+        animal_id = data['animal_id']
+        quantity = data['quantity']
+
+        # Validate animal
+        animal = Animal.query.filter_by(id=animal_id).first()
+        if not animal:
+            return jsonify({"error": "Animal not found"}), 404
+
+        farmer_id = animal.farmer_id
+        order_id = f"ORD-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        # Create order
+        order = Order(
+            user_id=user_id,
+            animal_id=animal_id,
+            order_id=order_id,
+            quantity=quantity,
+            status='initiated',
+            created_at=datetime.now()
+        )
+        db.session.add(order)
+        db.session.commit()
+
+        # Notify farmer
+        message = f"New order {order_id} for animal {animal_id} placed."
+        notification = Notification(
+            farmer_id=farmer_id,
+            message=message,
+            status="unread",
+            created_at=datetime.now()
+        )
+        db.session.add(notification)
+        db.session.commit()
+
+        notify_farmer(farmer_id, message)
+
+        return jsonify({"message": "Order placed successfully", "order_id": order_id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
