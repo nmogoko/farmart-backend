@@ -428,10 +428,8 @@ def forgot_password():
     msg = Message(subject="Password Reset",
                   sender="noreply@yourapp.com",
                   recipients=[email])
-    msg.body = f"Please click the link to reset your password:{reset_token}"
+    msg.body = f"Please click the link to reset your password: {reset_token}"
     mail.send(msg)
-
-    return jsonify({"msg": "Password reset email sent!"}), 200
 
     return jsonify({"msg": "Password reset email sent!"}), 200
 
