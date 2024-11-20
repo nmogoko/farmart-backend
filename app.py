@@ -720,6 +720,75 @@ def create_order():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/orders/<int:order_id>', methods=['GET'])
+def get_order(order_id):
+    """Retrieve a specific order by ID."""
+    order = Order.query.filter_by(id=order_id).first()
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+
+    return jsonify({
+        'id': order.id,
+        'order_id': order.order_id,
+        'user_id': order.user_id,
+        'animal_id': order.animal_id,
+        'quantity': order.quantity,
+        'status': order.status,
+        'created_at': order.created_at
+    })
+
+
+@app.route('/orders', methods=['GET'])
+def list_orders():
+    """List all orders."""
+    orders = Order.query.all()
+    return jsonify([
+        {
+            'id': order.id,
+            'order_id': order.order_id,
+            'user_id': order.user_id,
+            'animal_id': order.animal_id,
+            'quantity': order.quantity,
+            'status': order.status,
+            'created_at': order.created_at
+        } for order in orders
+    ])
+
+
+@app.route('/orders/<int:order_id>', methods=['PUT'])
+def update_order(order_id):
+    """Update the status of an order."""
+    data = request.json
+    order = Order.query.filter_by(id=order_id).first()
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+
+    try:
+        if 'status' in data:
+            order.status = data['status']
+        if 'quantity' in data:
+            order.quantity = data['quantity']
+        
+        db.session.commit()
+        return jsonify({'message': 'Order updated successfully!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/orders/<int:order_id>', methods=['DELETE'])
+def delete_order(order_id):
+    """Delete an order."""
+    order = Order.query.filter_by(id=order_id).first()
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+
+    try:
+        db.session.delete(order)
+        db.session.commit()
+        return jsonify({'message': 'Order deleted successfully!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
