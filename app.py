@@ -4,10 +4,11 @@ from flask import Flask, request, jsonify, g
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager, decode_token, get_jwt
 from flask_migrate import Migrate
 from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type, Notification, Breed
+from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type, Notification, Order, Animal
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from utils import generate_token, generate_timestamp, generate_password, with_user_middleware
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from flask_socketio import SocketIO, emit
 import requests
 
 app = Flask(__name__)
@@ -21,6 +22,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICAT
 jwt = JWTManager(app)
 migrate = Migrate(app, db)
 db.init_app(app)
+socketio = SocketIO(app)
 
 blacklist = set()
 
@@ -651,6 +653,140 @@ def respond_to_notification(notification_id):
 
         db.session.commit()
         return jsonify({'message': f'Notification {response}!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+# WebSocket event for notifications
+@socketio.on('connect')
+def handle_connect():
+    print("Client connected")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print("Client disconnected")
+
+# WebSocket route: Notify farmer
+def notify_farmer(farmer_id, message):
+    emit('farmer_notification', {'message': message}, room=f'farmer_{farmer_id}')
+
+# WebSocket route: Notify buyer
+def notify_buyer(user_id, message):
+    emit('buyer_notification', {'message': message}, room=f'buyer_{user_id}')
+
+# Place an Order
+@app.route('/orders', methods=['POST'])
+def create_order():
+    try:
+        data = request.get_json()
+        user_id = data['user_id']
+        animal_id = data['animal_id']
+        quantity = data['quantity']
+
+        # Validate animal
+        animal = Animal.query.filter_by(id=animal_id).first()
+        if not animal:
+            return jsonify({"error": "Animal not found"}), 404
+
+        farmer_id = animal.farmer_id
+        order_id = f"ORD-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        # Create order
+        order = Order(
+            user_id=user_id,
+            animal_id=animal_id,
+            order_id=order_id,
+            quantity=quantity,
+            status='initiated',
+            created_at=datetime.now()
+        )
+        db.session.add(order)
+        db.session.commit()
+
+        # Notify farmer
+        message = f"New order {order_id} for animal {animal_id} placed."
+        notification = Notification(
+            farmer_id=farmer_id,
+            message=message,
+            status="unread",
+            created_at=datetime.now()
+        )
+        db.session.add(notification)
+        db.session.commit()
+
+        notify_farmer(farmer_id, message)
+
+        return jsonify({"message": "Order placed successfully", "order_id": order_id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/orders/<int:order_id>', methods=['GET'])
+def get_order(order_id):
+    """Retrieve a specific order by ID."""
+    order = Order.query.filter_by(id=order_id).first()
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+
+    return jsonify({
+        'id': order.id,
+        'order_id': order.order_id,
+        'user_id': order.user_id,
+        'animal_id': order.animal_id,
+        'quantity': order.quantity,
+        'status': order.status,
+        'created_at': order.created_at
+    })
+
+
+@app.route('/orders', methods=['GET'])
+def list_orders():
+    """List all orders."""
+    orders = Order.query.all()
+    return jsonify([
+        {
+            'id': order.id,
+            'order_id': order.order_id,
+            'user_id': order.user_id,
+            'animal_id': order.animal_id,
+            'quantity': order.quantity,
+            'status': order.status,
+            'created_at': order.created_at
+        } for order in orders
+    ])
+
+
+@app.route('/orders/<int:order_id>', methods=['PUT'])
+def update_order(order_id):
+    """Update the status of an order."""
+    data = request.json
+    order = Order.query.filter_by(id=order_id).first()
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+
+    try:
+        if 'status' in data:
+            order.status = data['status']
+        if 'quantity' in data:
+            order.quantity = data['quantity']
+        
+        db.session.commit()
+        return jsonify({'message': 'Order updated successfully!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/orders/<int:order_id>', methods=['DELETE'])
+def delete_order(order_id):
+    """Delete an order."""
+    order = Order.query.filter_by(id=order_id).first()
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+
+    try:
+        db.session.delete(order)
+        db.session.commit()
+        return jsonify({'message': 'Order deleted successfully!'})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
