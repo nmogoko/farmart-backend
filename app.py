@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Flask, request, jsonify, g
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager, decode_token
 from flask_migrate import Migrate
-from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type, Notification
+from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type, Notification, Breed
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from utils import generate_token, generate_timestamp, generate_password, with_user_middleware
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -141,6 +141,7 @@ def add_animal():
 
     # Create a new Animal object
     new_animal = Animal(
+        id=data['id'],
         farmer_id=data['farmer_id'],
         type_id=data['type_id'],
         breed_id=data['breed_id'],
@@ -232,7 +233,21 @@ def delete_animal(animal_id):
 # Route to get all animal listings
 @app.route('/animals', methods=['GET'])
 def get_animals():
-    animals = Animal.query.all()
+   # Get query parameters for filtering
+    animal_type = request.args.get('type', None)
+    animal_breed = request.args.get('breed', None)
+
+    query = Animal.query.join(Type).join(Breed)
+
+    # Apply filters if provided
+    if animal_type:
+        query = query.filter(Type.name.ilike(f"%{animal_type}%"))
+    if animal_breed:
+        query = query.filter(Breed.name.ilike(f"%{animal_breed}%"))
+
+    # Execute the query
+    animals = query.all()
+
     animal_list = [
         {
             'id': animal.id,
