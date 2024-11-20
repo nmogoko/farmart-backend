@@ -1,7 +1,7 @@
 from config import Config
 from datetime import datetime
 from flask import Flask, request, jsonify, g
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager, decode_token
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager, decode_token, get_jwt
 from flask_migrate import Migrate
 from models import Request, db, Transaction, CallbackMetadatum, Cart, User, Animal, Role, UsersRole,FarmersProfile, Type, Notification, Breed
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -21,6 +21,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICAT
 jwt = JWTManager(app)
 migrate = Migrate(app, db)
 db.init_app(app)
+
+blacklist = set()
 
 @app.route('/initiate-payment', methods=['POST'])
 @generate_token
@@ -414,6 +416,18 @@ def login():
     access_token = create_access_token(identity=user_data)
     refresh_token = create_refresh_token(identity=user_data)
     return jsonify(access_token=access_token, refresh_token=refresh_token), 200
+
+@jwt.token_in_blocklist_loader
+def check_if_token_in_blacklist(jwt_header, jwt_payload):
+    return jwt_payload['jti'] in blacklist
+
+# logout
+@app.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    jti = get_jwt()['jti']  # JWT ID
+    blacklist.add(jti)
+    return jsonify(msg="Successfully logged out"), 200
 
 # reset password
 @app.route('/reset-password/<token>', methods=['POST'])
