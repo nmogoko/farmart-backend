@@ -1,7 +1,7 @@
 # coding: utf-8
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, LargeBinary
 from sqlalchemy.orm import relationship
 
 db = SQLAlchemy()
@@ -78,6 +78,7 @@ class Animal(db.Model):
     price = Column(Numeric)
     description = Column(Text)
     is_available = Column(Boolean)
+    image = Column(LargeBinary)
 
     breed = relationship('Breed')
     farmer = relationship('FarmersProfile')
