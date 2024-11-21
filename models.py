@@ -160,13 +160,13 @@ class Notification(db.Model):
     __tablename__ = 'Notifications'
 
     id = Column(Integer, primary_key=True)
-    sender_id = Column(ForeignKey('Users.id'))  # Buyer
-    recipient_id = Column(ForeignKey('Users.id'))  # Farmer
+    user_id = Column(ForeignKey('Users.id'))  # Buyer
+    farmer_id = Column(ForeignKey('Users.id'))  # Farmer
     order_id = Column(ForeignKey('Orders.id'))
     message = Column(Text)
     status = Column(Enum('pending', 'accepted', 'declined', name='notification_status'), default='pending')
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    sender = relationship('User', foreign_keys=[sender_id])
-    recipient = relationship('User', foreign_keys=[recipient_id])
+    user = relationship('User', foreign_keys=[user_id])
+    farmer = relationship('User', foreign_keys=[farmer_id])
     order = relationship('Order')
