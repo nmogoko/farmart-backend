@@ -16,7 +16,7 @@ config = Config()
 
 # Access environment variables
 app.config['SECRET_KEY'] = config.JWT_SECRET_KEY
-app.config['SQLALCHEMY_DATABASE_URI'] = config.SQLALCHEMY_DATABASE_URI
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Malindi254@localhost/cartdb'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATION
 
 jwt = JWTManager(app)
@@ -616,9 +616,17 @@ def reduce_cart_item():
         return jsonify({"error": "Failed to update item quantity.", "details": str(e)}), 500
 
 @app.route('/notifications/<int:farmer_id>', methods=['GET'])
+@with_user_middleware
 def get_notifications(farmer_id):
     """Fetch all notifications for a specific farmer."""
+    if g.user_id != farmer_id:
+        return jsonify({"error": "Unauthorized access"}), 401
+    
     notifications = Notification.query.filter_by(recipient_id=farmer_id).all()
+
+    if not notifications:
+        return jsonify({"message": "No notifications found"}), 404
+
     return jsonify([
         {
             'id': notification.id,
@@ -627,18 +635,21 @@ def get_notifications(farmer_id):
             'status': notification.status,
             'created_at': notification.created_at
         } for notification in notifications
-    ])
-
-
+    ]), 200
 
 
 @app.route('/notifications/<int:notification_id>', methods=['PUT'])
+@with_user_middleware
 def respond_to_notification(notification_id):
     """Accept or decline a notification."""
     data = request.json
     notification = Notification.query.filter_by(id=notification_id).first()
+
     if not notification:
         return jsonify({'error': 'Notification not found'}), 404
+
+    if notification.recipient_id != g.user_id:
+        return jsonify({"error": "Unauthorized access"}), 401
 
     try:
         response = data.get('response')
@@ -653,32 +664,40 @@ def respond_to_notification(notification_id):
 
         db.session.commit()
         return jsonify({'message': f'Notification {response}!'})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
 
 # WebSocket event for notifications
 @socketio.on('connect')
 def handle_connect():
     print("Client connected")
 
+
 @socketio.on('disconnect')
 def handle_disconnect():
     print("Client disconnected")
+
 
 # WebSocket route: Notify farmer
 def notify_farmer(farmer_id, message):
     emit('farmer_notification', {'message': message}, room=f'farmer_{farmer_id}')
 
+
 # WebSocket route: Notify buyer
 def notify_buyer(user_id, message):
     emit('buyer_notification', {'message': message}, room=f'buyer_{user_id}')
 
+
 # Place an Order
 @app.route('/orders', methods=['POST'])
+@with_user_middleware
 def create_order():
+    """Create a new order and notify the farmer."""
     try:
         data = request.get_json()
-        user_id = data['user_id']
+        user_id = g.user_id  # Use the user_id from the middleware
         animal_id = data['animal_id']
         quantity = data['quantity']
 
@@ -720,13 +739,18 @@ def create_order():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-    
+
+
 @app.route('/orders/<int:order_id>', methods=['GET'])
+@with_user_middleware
 def get_order(order_id):
     """Retrieve a specific order by ID."""
     order = Order.query.filter_by(id=order_id).first()
     if not order:
         return jsonify({'error': 'Order not found'}), 404
+
+    if order.user_id != g.user_id:
+        return jsonify({"error": "Unauthorized access"}), 401
 
     return jsonify({
         'id': order.id,
@@ -736,13 +760,18 @@ def get_order(order_id):
         'quantity': order.quantity,
         'status': order.status,
         'created_at': order.created_at
-    })
+    }), 200
 
 
 @app.route('/orders', methods=['GET'])
+@with_user_middleware
 def list_orders():
     """List all orders."""
-    orders = Order.query.all()
+    orders = Order.query.filter_by(user_id=g.user_id).all()  # Filter by the current user
+
+    if not orders:
+        return jsonify({"message": "No orders found"}), 404
+
     return jsonify([
         {
             'id': order.id,
@@ -753,10 +782,11 @@ def list_orders():
             'status': order.status,
             'created_at': order.created_at
         } for order in orders
-    ])
+    ]), 200
 
 
 @app.route('/orders/<int:order_id>', methods=['PUT'])
+@with_user_middleware
 def update_order(order_id):
     """Update the status of an order."""
     data = request.json
@@ -764,29 +794,36 @@ def update_order(order_id):
     if not order:
         return jsonify({'error': 'Order not found'}), 404
 
+    if order.user_id != g.user_id:
+        return jsonify({"error": "Unauthorized access"}), 401
+
     try:
         if 'status' in data:
             order.status = data['status']
         if 'quantity' in data:
             order.quantity = data['quantity']
-        
+
         db.session.commit()
-        return jsonify({'message': 'Order updated successfully!'})
+        return jsonify({'message': 'Order updated successfully!'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 
 @app.route('/orders/<int:order_id>', methods=['DELETE'])
+@with_user_middleware
 def delete_order(order_id):
     """Delete an order."""
     order = Order.query.filter_by(id=order_id).first()
     if not order:
         return jsonify({'error': 'Order not found'}), 404
 
+    if order.user_id != g.user_id:
+        return jsonify({"error": "Unauthorized access"}), 401
+
     try:
         db.session.delete(order)
         db.session.commit()
-        return jsonify({'message': 'Order deleted successfully!'})
+        return jsonify({'message': 'Order deleted successfully!'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
